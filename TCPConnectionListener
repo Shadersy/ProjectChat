@@ -1,0 +1,8 @@
+package chat.network;
+//слой абстракции, события, которые могут возникать
+public interface TCPConnectionListener {
+    void onConnectionReady(TCPConnection tcpConnection);// запустили соединение, можем с ним работать
+    void onReceiveString(TCPConnection tcpConnection, String value); //соединение принимает входяшую строчку
+    void onDisconnect(TCPConnection tcpConnection); //соединение порвалось
+    void onException(TCPConnection tcpConnection, Exception e);
+}
