@@ -1,0 +1,71 @@
+package chat.server;
+
+
+import chat.network.TCPConnection;
+import chat.network.TCPConnectionListener;
+
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.util.ArrayList;
+
+
+public class ChatServer implements TCPConnectionListener {
+    public static void main(String[] args) {
+        new ChatServer();
+    }
+
+
+    private final ArrayList<TCPConnection> connections = new ArrayList<>();
+
+
+    private ChatServer(){
+        System.out.println("Сервер запущен...");
+        try(ServerSocket serverSocket = new ServerSocket(8189)){
+            while(true){
+                //запуск сервера
+                try{
+                    new TCPConnection(this, serverSocket.accept()); //постоянно висим в методе accept
+                    //он ждет активное соединение, как только оно установлено, возвращает объект сокета
+                    //этот объект передается в this, включая в себя Listener, создаем экземпляр
+                } catch(IOException e){
+                    System.out.println("TCPConnection exception: "+ e);
+                }
+
+            }
+        } catch(IOException e){
+            throw new RuntimeException(e);
+        }
+    }
+
+  public synchronized void onConnectionReady(TCPConnection tcpConnection){
+        connections.add(tcpConnection);
+        sendToAllConnections("Client connected: "+ tcpConnection);
+  }// запустили соединение, можем с ним работать
+
+    public synchronized  void onReceiveString(TCPConnection tcpConnection, String value){
+        sendToAllConnections(value);
+    } //соединение принимает входяшую строчку, и пересылает всем клиентам
+
+
+
+
+    public synchronized  void onDisconnect(TCPConnection tcpConnection){
+        connections.remove(tcpConnection);
+        sendToAllConnections("Client disconnected: "+ tcpConnection);
+    } //соединение прервалось
+
+
+
+    public synchronized void onException(TCPConnection tcpConnection, Exception e){
+        System.out.println("TCPConnection exception: "+ e);
+    }
+
+
+    private void sendToAllConnections(String value){ //значение записали в консоль
+        System.out.println(value);
+        final int cnt = connections.size();//пробежались по списку всех соединений и всем отправили это сообщение
+        for (int i=0; i<cnt; i++) connections.get(i).sendString(value);
+
+    }
+}
+
