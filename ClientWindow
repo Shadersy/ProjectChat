@@ -1,0 +1,143 @@
+package chat.client;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.FocusListener;
+import java.io.IOException;
+import java.awt.event.FocusEvent;
+
+import chat.network.TCPConnection;
+import chat.network.TCPConnectionListener;
+
+class HintTextField extends JTextField implements FocusListener {
+
+    private final String hint;
+    private boolean showingHint;
+
+    public HintTextField(final String hint) {
+        super(hint);
+        super.setForeground(Color.GRAY);
+        this.hint = hint;
+        this.showingHint = true;
+        super.addFocusListener(this);
+    }
+
+    @Override
+    public void focusGained(FocusEvent e) {
+        if(this.getText().isEmpty()) {
+            super.setText("");
+            super.setForeground(Color.BLACK);
+            showingHint = false;
+        }
+    }
+    @Override
+    public void focusLost(FocusEvent e) {
+        if(this.getText().isEmpty()) {
+            super.setText(hint);
+            super.setForeground(Color.GRAY);
+            showingHint = true;
+        }
+    }
+
+    @Override
+    public String getText() {
+        return showingHint ? "" : super.getText();
+    }
+}
+
+public class ClientWindow extends JFrame  implements ActionListener,  TCPConnectionListener{
+
+    private static final String IP_ADDR = "192.168.61.1";
+    private static final int PORT = 8189;
+    private static final int WIDTH = 650; //размеры окна
+    private static final int HEIGHT = 450;
+
+
+
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                new ClientWindow();
+            }
+        });
+    }
+
+
+    private final JTextArea log = new JTextArea(); //поле для просмотра соообщений чата
+    private final HintTextField fieldNickname = new HintTextField("Введите никнейм...");
+
+    private final HintTextField fieldInput = new HintTextField("Введите ваше сообщение..."); //куда будет писатсья текст сообщения
+
+
+    private TCPConnection connection;
+
+
+    private ClientWindow() {
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE); //закрытие клиента крестиком
+        setSize(WIDTH, HEIGHT);
+        setLocationRelativeTo(null); // окно всегда посередине
+        setAlwaysOnTop(true); //окошко появляется сверху
+
+
+        log.setEditable(false);//отключение возможности редактирования
+        log.setLineWrap(true); //автоматический перенос слов
+        add(log, BorderLayout.CENTER);
+
+
+        fieldInput.addActionListener(this); //вешаем экшенлистенер на поле, чтобы ловить нажатие на клавишу(передавая какой-то
+        //экземпляр
+        add(fieldInput, BorderLayout.SOUTH);
+        add(fieldNickname, BorderLayout.NORTH);
+
+        setVisible(true);
+
+        //установление первичного соединения для клиента
+        try {
+            connection = new TCPConnection(this, IP_ADDR, PORT);
+        } catch (IOException e) {
+            printMsg("Connection exception: " + e);
+        }
+    }
+
+
+    @Override
+    public void actionPerformed(ActionEvent e) { //отсылка сообщения по нажатии на кнопку
+
+         String msg = fieldInput.getText();
+         if(msg.equals("")) return; //чтобы не отправлялась пустая строка
+         fieldInput.setText(null);
+         connection.sendString(fieldNickname.getText() + ": " + msg);
+    }
+
+    @Override
+    public void onConnectionReady(TCPConnection tcpConnection) {
+        printMsg("Соединение установлено... ");
+    }
+
+    @Override
+    public void onReceiveString(TCPConnection tcpConnection, String value) {
+     printMsg(value);
+    }
+
+    @Override
+    public void onDisconnect(TCPConnection tcpConnection) {
+         printMsg("Соединение прервано ");
+    }
+
+    @Override
+    public void onException(TCPConnection tcpConnection, Exception e) {
+        printMsg("Connection exception: " + e);
+    }
+
+    private synchronized void printMsg(String msg){
+        SwingUtilities.invokeLater(new Runnable(){
+           public void run(){
+               log.append(msg + "\n");
+               log.setCaretPosition(log.getDocument().getLength());//чтобы поднимался автоматически текст
+           }
+        });
+    }
+
+}
